@@ -1,5 +1,9 @@
 <script lang="ts">
-  import Versions from "./components/Versions.svelte";
+  import { Canvas } from "@threlte/core";
+
+  import Scene from "./components/Scene.svelte";
 </script>
 
-<Versions />
+<Canvas>
+  <Scene />
+</Canvas>
