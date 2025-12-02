@@ -1,4 +1,7 @@
 import { Matrix4 } from "three";
+import { SimplexNoise } from "three/examples/jsm/Addons.js";
+import { clamp } from "three/src/math/MathUtils.js";
+import { RNG } from "./rng";
 
 type BlockData = {
   id: number;
@@ -13,38 +16,84 @@ type BlockMatrixData = {
   matrix: Matrix4;
 };
 
-export class World {
+export interface WorldParams {
   width: number;
   height: number;
   depth: number;
+  terrain: {
+    seed: number;
+    scale: number;
+    magnitude: number;
+    offset: number;
+  };
+}
+
+export class World {
   data: WorldData;
 
-  threshold: number = 0.5; // Threshold for terrain height
+  // World dimensions
+  width: number;
+  height: number;
+  depth: number;
+  
+  // Terrain parameters
+  terrain: {
+    seed: number;
+    scale: number;
+    magnitude: number;
+    offset: number;
+  };
 
-  constructor(width: number, height: number, depth: number) {
-    this.width = width;
-    this.height = height;
-    this.depth = depth;
+  constructor(params: WorldParams) {
+    this.width = params.width;
+    this.height = params.height;
+    this.depth = params.depth;
+    this.terrain = params.terrain;
 
     // Initialize empty world data
     this.data = [];
   }
 
-  // Simple terrain generation (flat ground with random hills)
-  generateTerrain() {
+  // Initialize empty terrain
+  initTerrain() {
     // Clear existing data
     this.data = [];
 
+    // Initialize 3D array with empty blocks
     for (let x = 0; x < this.width; x++) {
       const slice = [];
       for (let y = 0; y < this.height; y++) {
         const row = [];
         for (let z = 0; z < this.depth; z++) {
-          row.push({ id: Math.random() > this.threshold ? 1 : 0, instanceId: null });
+          row.push({ id: 0, instanceId: -1 }); // Empty block
         }
         slice.push(row);
       }
       this.data.push(slice);
+    }
+  }
+
+  // Terrain generation using Simplex noise
+  generateTerrain() {
+    this.initTerrain();
+
+    const rng = new RNG(this.terrain.seed);
+    const simplexGenerator = new SimplexNoise(rng);
+
+    for (let x = 0; x < this.width; x++) {
+      for (let z = 0; z < this.depth; z++) {
+        // Calculate noise value for terrain height
+        const noiseValue = simplexGenerator.noise(x / this.terrain.scale, z / this.terrain.scale);
+        // Scale noise to world height
+        const scaledNoise = this.terrain.offset + this.terrain.magnitude * noiseValue;
+        // Clamp height to valid range and convert to integer
+        const height = Math.floor(clamp(this.height * scaledNoise, 0, this.height - 1));
+
+        // Fill blocks up to calculated height
+        for (let y = 0; y <= height; y++) {
+          this.setBlockId(x, y, z, 1); // Set block id to 1 (solid block)
+        }
+      }
     }
   }
 
