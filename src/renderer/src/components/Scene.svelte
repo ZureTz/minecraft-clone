@@ -1,37 +1,54 @@
 <script lang="ts">
-  import { T } from "@threlte/core";
-  import { OrbitControls, interactivity } from "@threlte/extras";
-  import { Spring } from "svelte/motion";
+  import { T, useTask } from "@threlte/core";
+  import { OrbitControls } from "@threlte/extras";
+  import { onMount } from "svelte";
 
-  interactivity();
-  const scale = new Spring(1);
+  import { World } from "../utils/world";
+  import { createUI } from "../utils/ui";
+
+  let worldWidth = $state(32);
+  let worldHeight = $state(16);
+  let world = $derived(new World(worldWidth, worldHeight, worldWidth));
+  let matrices = $derived(world.generateWorld());
+
+  let ui: ReturnType<typeof createUI>;
+
+  onMount(() => {
+    ui = createUI({ width: worldWidth, height: worldHeight }, (key, value) => {
+      if (key === "width") worldWidth = value;
+      if (key === "height") worldHeight = value;
+    });
+
+    return () => {
+      ui.destroy();
+    };
+  });
+
+  useTask(() => {
+    ui?.stats.update();
+  });
 </script>
 
-<T.PerspectiveCamera
-  makeDefault
-  position={[10, 10, 10]}
-  fov={75}
-  oncreate={(ref) => {
-    ref.lookAt(0, 1, 0);
-  }}
->
-  <OrbitControls enableDamping />
+<T.PerspectiveCamera makeDefault position={[-32, 16, -32]} fov={75}>
+  <OrbitControls target={[worldWidth / 2, worldHeight / 2, worldWidth / 2]} enableDamping />
 </T.PerspectiveCamera>
 
-<T.DirectionalLight position={[10, 10, 15]} castShadow />
+<T.Color attach="background" args={["#87CEEB"]} />
 
-<T.Mesh
-  position={[0, 1, 0]}
-  onpointerenter={() => scale.set(1.5)}
-  onpointerleave={() => scale.set(1)}
-  scale={scale.current}
+<T.DirectionalLight position={[1, 1, 1]} castShadow />
+<T.DirectionalLight position={[-1, 1, -0.5]} castShadow />
+<T.AmbientLight intensity={0.1} castShadow />
+
+<T.InstancedMesh
+  args={[undefined, undefined, matrices.length]}
   castShadow
+  oncreate={(ref) => {
+    matrices.forEach((blockMatrix, i) => {
+      ref.setMatrixAt(i, blockMatrix.matrix);
+    });
+    ref.instanceMatrix.needsUpdate = true;
+  }}
 >
-  <T.BoxGeometry args={[1, 2, 1]} />
-  <T.MeshStandardMaterial color="hotpink" />
-</T.Mesh>
-
-<T.Mesh rotation.x={-Math.PI / 2} receiveShadow>
-  <T.CircleGeometry args={[4, 40]} />
-  <T.MeshStandardMaterial color="white" />
-</T.Mesh>
+  <T.BoxGeometry />
+  <T.MeshLambertMaterial color="#00b000" />
+</T.InstancedMesh>
