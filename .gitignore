@@ -4,3 +4,6 @@ out
 .DS_Store
 .eslintcache
 *.log*
+
+# Textures packages
+URBAN_v2.5_128x_1.17/

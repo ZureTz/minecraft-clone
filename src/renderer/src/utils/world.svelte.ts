@@ -1,9 +1,9 @@
-import { Color, Matrix4 } from "three";
+import { Matrix4 } from "three";
 import { SimplexNoise } from "three/examples/jsm/Addons.js";
 import { clamp } from "three/src/math/MathUtils.js";
 
 import { RNG } from "./rng";
-import { BlockType, getBlockColor } from "./blocks";
+import { BlockType, resources } from "./blocks";
 
 type BlockData = {
   id: number;
@@ -11,10 +11,13 @@ type BlockData = {
 
 type WorldData = BlockData[][][];
 
-type BlockMatrixData = {
-  id: number;
-  matrix: Matrix4;
-  color: Color;
+type WorldMatrices = {
+  top: Record<number, Matrix4[]>;
+  bottom: Record<number, Matrix4[]>;
+  left: Record<number, Matrix4[]>;
+  right: Record<number, Matrix4[]>;
+  front: Record<number, Matrix4[]>;
+  back: Record<number, Matrix4[]>;
 };
 
 export interface WorldParams {
@@ -33,14 +36,31 @@ export class World {
   // State using runes
   width = $state(64);
   depth = $state(64);
-  height = $state(16);
+  height = $state(32);
 
-  terrain = $state({
+  private terrain = $state({
     seed: Math.round(Math.random() * 10000),
-    scale: 48,
+    scale: 30,
     magnitude: 0.5,
-    offset: 0.5
+    offset: 0.2
   });
+
+  private rng = $derived(new RNG(this.terrain.seed));
+  private simplexGenerator = $derived(new SimplexNoise(this.rng));
+
+  private resources = $state(
+    resources.reduce(
+      (acc, resource) => {
+        acc[resource.id] = {
+          ...resource,
+          scale: { ...resource.scale }, // Deep copy scale
+          scarcity: resource.scarcity
+        };
+        return acc;
+      },
+      {} as Record<number, any>
+    )
+  );
 
   constructor(params: WorldParams = {}) {
     if (params.width) this.width = params.width;
@@ -57,50 +77,106 @@ export class World {
   // Derived state: The generated world data and matrices
   // This will automatically re-calculate whenever any dependency (width, height, terrain) changes.
   generation = $derived.by(() => {
-    const data: WorldData = [];
-    const blocks: BlockMatrixData[] = [];
+    const data = this.initializeData();
+    this.generateTerrain(data);
+    this.generateResources(data);
+    const blocks = this.generateMatrices(data);
+    return { data, blocks };
+  });
 
-    // 1. Initialize Data
+  // 1. Initialize Data
+  initializeData(): WorldData {
+    return Array.from({ length: this.width }, () =>
+      Array.from({ length: this.height }, () =>
+        Array.from({ length: this.depth }, () => ({ id: BlockType.Empty }))
+      )
+    );
+  }
+
+  // 2. Generate Resources
+  generateResources(data: WorldData) {
+    const resources = Object.values(this.resources);
     for (let x = 0; x < this.width; x++) {
-      const slice: BlockData[][] = [];
       for (let y = 0; y < this.height; y++) {
-        const row: BlockData[] = [];
         for (let z = 0; z < this.depth; z++) {
-          row.push({ id: BlockType.Empty });
+          // Optimization: Skip if block is Empty (air)
+          if (data[x][y][z].id === BlockType.Empty) continue;
+          // Optimization: Skip if block is Grass (surface)
+          if (data[x][y][z].id === BlockType.Grass) continue;
+
+          for (const resource of resources) {
+            const noiseScale = resource.scale;
+            const scarcity = resource.scarcity;
+            if (!noiseScale || !scarcity) continue;
+
+            // Calculate noise value for resource placement
+            const noiseValue = this.simplexGenerator.noise3d(
+              x / noiseScale.x,
+              y / noiseScale.y,
+              z / noiseScale.z
+            );
+
+            // Skip placement based on scarcity
+            if (noiseValue < scarcity) {
+              continue;
+            }
+            data[x][y][z] = { id: resource.id };
+            // Once a resource is placed, stop checking other resources for this block
+            // (Assuming resources are mutually exclusive and order defines priority)
+            break;
+          }
         }
-        slice.push(row);
       }
-      data.push(slice);
     }
+  }
 
-    // 2. Generate Terrain
-    const rng = new RNG(this.terrain.seed);
-    const simplexGenerator = new SimplexNoise(rng);
-
+  // 3. Generate Terrain
+  generateTerrain(data: WorldData) {
     for (let x = 0; x < this.width; x++) {
       for (let z = 0; z < this.depth; z++) {
         // Calculate noise value for terrain height
-        const noiseValue = simplexGenerator.noise(x / this.terrain.scale, z / this.terrain.scale);
+        const noiseValue = this.simplexGenerator.noise(
+          x / this.terrain.scale,
+          z / this.terrain.scale
+        );
         // Scale noise value based on terrain parameters
         const scaledNoise = this.terrain.offset + this.terrain.magnitude * noiseValue;
         // Determine height of terrain at this point
         const height = Math.floor(clamp(this.height * scaledNoise, 0, this.height - 1));
 
         // Set blocks up to the calculated height
-        for (let y = 0; y <= this.height; y++) {
+        for (let y = 0; y < this.height; y++) {
+          // Set all blocks above height to empty
+          if (y > height) {
+            data[x][y][z] = { id: BlockType.Empty };
+            continue;
+          }
+
+          // Set grass block at the surface
           if (y === height) {
             data[x][y][z] = { id: BlockType.Grass };
             continue;
           }
-          if (y < height) {
-            data[x][y][z] = { id: BlockType.Dirt };
-            continue;
-          }
+
+          // Otherwise, y is below the surface
+          // Fall back to dirt block
+          data[x][y][z] = { id: BlockType.Dirt };
         }
       }
     }
+  }
 
-    // 3. Generate Matrices
+  // 4. Generate Matrices
+  generateMatrices(data: WorldData): WorldMatrices {
+    const matrices: WorldMatrices = {
+      top: {},
+      bottom: {},
+      left: {},
+      right: {},
+      front: {},
+      back: {}
+    };
+
     const width = this.width;
     const height = this.height;
     const depth = this.depth;
@@ -113,38 +189,45 @@ export class World {
           // Skip empty blocks
           if (block.id === BlockType.Empty) continue;
 
-          // Check for visibility (exposed faces)
-          // A block is visible if any of its neighbors are empty or out of bounds
-          let visible = false;
-
-          // Top
-          if (y === height - 1 || data[x][y + 1][z].id === BlockType.Empty) visible = true;
-          // Bottom
-          else if (y === 0 || data[x][y - 1][z].id === BlockType.Empty) visible = true;
-          // Right (+x)
-          else if (x === width - 1 || data[x + 1][y][z].id === BlockType.Empty) visible = true;
-          // Left (-x)
-          else if (x === 0 || data[x - 1][y][z].id === BlockType.Empty) visible = true;
-          // Front (+z)
-          else if (z === depth - 1 || data[x][y][z + 1].id === BlockType.Empty) visible = true;
-          // Back (-z)
-          else if (z === 0 || data[x][y][z - 1].id === BlockType.Empty) visible = true;
-
-          if (!visible) continue;
-
           const matrix = new Matrix4();
           matrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
-          blocks.push({
-            id: block.id,
-            matrix: matrix,
-            color: getBlockColor(block.id)
-          });
+
+          const addMatrix = (face: keyof WorldMatrices) => {
+            if (!matrices[face][block.id]) {
+              matrices[face][block.id] = [];
+            }
+            matrices[face][block.id].push(matrix);
+          };
+
+          // Top
+          if (y === height - 1 || data[x][y + 1][z].id === BlockType.Empty) {
+            addMatrix("top");
+          }
+          // Bottom
+          if (y === 0 || data[x][y - 1][z].id === BlockType.Empty) {
+            addMatrix("bottom");
+          }
+          // Right (+x)
+          if (x === width - 1 || data[x + 1][y][z].id === BlockType.Empty) {
+            addMatrix("right");
+          }
+          // Left (-x)
+          if (x === 0 || data[x - 1][y][z].id === BlockType.Empty) {
+            addMatrix("left");
+          }
+          // Front (+z)
+          if (z === depth - 1 || data[x][y][z + 1].id === BlockType.Empty) {
+            addMatrix("front");
+          }
+          // Back (-z)
+          if (z === 0 || data[x][y][z - 1].id === BlockType.Empty) {
+            addMatrix("back");
+          }
         }
       }
     }
-
-    return { data, blocks };
-  });
+    return matrices;
+  }
 
   // Getters to access the derived data
   get data() {
@@ -158,5 +241,52 @@ export class World {
   // Helpers
   isInBounds(x: number, y: number, z: number): boolean {
     return x >= 0 && x < this.width && y >= 0 && y < this.height && z >= 0 && z < this.depth;
+  }
+
+  getUIParams() {
+    const resourcesCopy = Object.values(this.resources).reduce(
+      (acc, resource: any) => {
+        acc[resource.id] = {
+          ...resource,
+          scale: { ...resource.scale }
+        };
+        return acc;
+      },
+      {} as Record<number, any>
+    );
+
+    return {
+      width: this.width,
+      height: this.height,
+      terrain: { ...this.terrain },
+      resources: resourcesCopy
+    };
+  }
+
+  updateParam(key: string, value: number) {
+    // Update the corresponding parameter based on the key
+    if (key === "width") {
+      this.width = value;
+      this.depth = value;
+    }
+    if (key === "height") this.height = value;
+
+    if (key === "terrain.seed") this.terrain.seed = value;
+    if (key === "terrain.scale") this.terrain.scale = value;
+    if (key === "terrain.magnitude") this.terrain.magnitude = value;
+    if (key === "terrain.offset") this.terrain.offset = value;
+
+    if (key.startsWith("resources.")) {
+      const parts = key.split(".");
+      const resourceId = parseInt(parts[1]);
+      const property = parts[2];
+
+      if (property === "scarcity") {
+        this.resources[resourceId].scarcity = value;
+      } else if (property === "scale") {
+        const axis = parts[3];
+        this.resources[resourceId].scale[axis] = value;
+      }
+    }
   }
 }

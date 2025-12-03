@@ -3,37 +3,21 @@
   import { OrbitControls } from "@threlte/extras";
   import { onMount } from "svelte";
 
-  import { World } from "../utils/world.svelte";
+  import { getBlockColor, getTexture, loadBlockTextures } from "../utils/textures";
   import { createUI } from "../utils/ui";
+  import { World } from "../utils/world.svelte";
 
   const world = new World();
 
-  let ui: ReturnType<typeof createUI>;
+  const textures = loadBlockTextures();
 
+  let ui: ReturnType<typeof createUI>;
   onMount(() => {
     // Initialize UI with current world state
-    const initialParams = {
-      width: world.width,
-      height: world.height,
-      terrain: { ...world.terrain }
-    };
-
-    ui = createUI(initialParams, (key, value) => {
-      if (key === "width") {
-        world.width = value;
-        world.depth = value;
-      }
-      if (key === "height") world.height = value;
-
-      if (key === "terrain.seed") world.terrain.seed = value;
-      if (key === "terrain.scale") world.terrain.scale = value;
-      if (key === "terrain.magnitude") world.terrain.magnitude = value;
-      if (key === "terrain.offset") world.terrain.offset = value;
+    ui = createUI(world.getUIParams(), (key: string, value: number) => {
+      world.updateParam(key, value);
     });
-
-    return () => {
-      ui.destroy();
-    };
+    return () => ui.destroy();
   });
 
   useTask(() => {
@@ -55,22 +39,163 @@
 
 <T.DirectionalLight position={[1, 1, 1]} castShadow />
 <T.DirectionalLight position={[-1, 1, -0.5]} castShadow />
-<T.AmbientLight intensity={0.1} />
+<T.AmbientLight intensity={0.5} />
 
-{#key world.matrices}
-  <T.InstancedMesh
-    args={[undefined, undefined, world.matrices.length]}
-    castShadow
-    oncreate={(ref) => {
-      world.matrices.forEach((blockMatrix, index) => {
-        ref.setMatrixAt(index, blockMatrix.matrix);
-        ref.setColorAt(index, blockMatrix.color);
-      });
-      ref.instanceMatrix.needsUpdate = true;
-      if (ref.instanceColor) ref.instanceColor.needsUpdate = true;
-    }}
-  >
-    <T.BoxGeometry />
-    <T.MeshLambertMaterial />
-  </T.InstancedMesh>
-{/key}
+{#await textures then txts}
+  {#key world.matrices}
+    <!-- Top -->
+    {#each Object.entries(world.matrices.top) as [id, matrices] (id)}
+      <T.InstancedMesh
+        args={[undefined, undefined, matrices.length]}
+        castShadow
+        oncreate={(ref) => {
+          matrices.forEach((matrix, index) => {
+            ref.setMatrixAt(index, matrix);
+          });
+          ref.instanceMatrix.needsUpdate = true;
+        }}
+      >
+        <T.PlaneGeometry
+          args={[1, 1]}
+          oncreate={(geo) => {
+            geo.rotateX(-Math.PI / 2);
+            geo.translate(0, 0.5, 0);
+          }}
+        />
+        <T.MeshLambertMaterial
+          map={getTexture(Number(id), "top", txts)}
+          color={getBlockColor(Number(id), "top")}
+        />
+      </T.InstancedMesh>
+    {/each}
+
+    <!-- Bottom -->
+    {#each Object.entries(world.matrices.bottom) as [id, matrices] (id)}
+      <T.InstancedMesh
+        args={[undefined, undefined, matrices.length]}
+        castShadow
+        oncreate={(ref) => {
+          matrices.forEach((matrix, index) => {
+            ref.setMatrixAt(index, matrix);
+          });
+          ref.instanceMatrix.needsUpdate = true;
+        }}
+      >
+        <T.PlaneGeometry
+          args={[1, 1]}
+          oncreate={(geo) => {
+            geo.rotateX(Math.PI / 2);
+            geo.translate(0, -0.5, 0);
+          }}
+        />
+        <T.MeshLambertMaterial
+          map={getTexture(Number(id), "bottom", txts)}
+          color={getBlockColor(Number(id), "bottom")}
+        />
+      </T.InstancedMesh>
+    {/each}
+
+    <!-- Front -->
+    {#each Object.entries(world.matrices.front) as [id, matrices] (id)}
+      <T.InstancedMesh
+        args={[undefined, undefined, matrices.length]}
+        castShadow
+        oncreate={(ref) => {
+          matrices.forEach((matrix, index) => {
+            ref.setMatrixAt(index, matrix);
+          });
+          ref.instanceMatrix.needsUpdate = true;
+        }}
+      >
+        <T.PlaneGeometry
+          args={[1, 1]}
+          oncreate={(geo) => {
+            geo.translate(0, 0, 0.5);
+          }}
+        />
+        <T.MeshLambertMaterial
+          map={getTexture(Number(id), "front", txts)}
+          color={getBlockColor(Number(id), "front")}
+        />
+      </T.InstancedMesh>
+    {/each}
+
+    <!-- Back -->
+    {#each Object.entries(world.matrices.back) as [id, matrices] (id)}
+      <T.InstancedMesh
+        args={[undefined, undefined, matrices.length]}
+        castShadow
+        oncreate={(ref) => {
+          matrices.forEach((matrix, index) => {
+            ref.setMatrixAt(index, matrix);
+          });
+          ref.instanceMatrix.needsUpdate = true;
+        }}
+      >
+        <T.PlaneGeometry
+          args={[1, 1]}
+          oncreate={(geo) => {
+            geo.rotateY(Math.PI);
+            geo.translate(0, 0, -0.5);
+          }}
+        />
+        <T.MeshLambertMaterial
+          map={getTexture(Number(id), "back", txts)}
+          color={getBlockColor(Number(id), "back")}
+        />
+      </T.InstancedMesh>
+    {/each}
+
+    <!-- Left -->
+    {#each Object.entries(world.matrices.left) as [id, matrices] (id)}
+      <T.InstancedMesh
+        args={[undefined, undefined, matrices.length]}
+        castShadow
+        oncreate={(ref) => {
+          matrices.forEach((matrix, index) => {
+            ref.setMatrixAt(index, matrix);
+          });
+          ref.instanceMatrix.needsUpdate = true;
+        }}
+      >
+        <T.PlaneGeometry
+          args={[1, 1]}
+          oncreate={(geo) => {
+            geo.rotateY(-Math.PI / 2);
+            geo.translate(-0.5, 0, 0);
+          }}
+        />
+        <T.MeshLambertMaterial
+          map={getTexture(Number(id), "left", txts)}
+          color={getBlockColor(Number(id), "left")}
+        />
+      </T.InstancedMesh>
+    {/each}
+
+    <!-- Right -->
+    {#each Object.entries(world.matrices.right) as [id, matrices] (id)}
+      <T.InstancedMesh
+        args={[undefined, undefined, matrices.length]}
+        castShadow
+        oncreate={(ref) => {
+          matrices.forEach((matrix, index) => {
+            ref.setMatrixAt(index, matrix);
+          });
+          ref.instanceMatrix.needsUpdate = true;
+        }}
+      >
+        <T.PlaneGeometry
+          args={[1, 1]}
+          oncreate={(geo) => {
+            geo.rotateY(Math.PI / 2);
+            geo.translate(0.5, 0, 0);
+          }}
+        />
+        <T.MeshLambertMaterial
+          map={getTexture(Number(id), "right", txts)}
+          color={getBlockColor(Number(id), "right")}
+        />
+      </T.InstancedMesh>
+    {/each}
+  {/key}
+{/await}
