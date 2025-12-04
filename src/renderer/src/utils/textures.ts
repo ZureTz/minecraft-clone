@@ -82,7 +82,7 @@ export function getNormalMap(
 }
 
 // Grass block color constant
-export const GRASS_COLOR = "#3fab24";
+const GRASS_COLOR = "#3fab24";
 
 /**
  * Get the tint color for a block face
@@ -97,27 +97,27 @@ export function getBlockColor(id: number, face: string): string | undefined {
   return undefined;
 }
 
-// Type for grass texture paths
-export type GrassTexturePaths = {
-  top: string;
-  side: string;
-  sideOverlay: string;
-  bottom: string;
-};
-
-// Type for grass normal map paths
-export type GrassNormalMapPaths = {
-  top: string;
-  side: string;
-  sideOverlay: string;
-  bottom: string;
-};
-
 /**
  * Load all block textures and compose composite textures
  * @returns A promise that resolves to the loaded and composed textures
  */
 export async function loadBlockTextures(): Promise<Record<string, Texture>> {
+  // Type for grass texture paths
+  type GrassTexturePaths = {
+    top: string;
+    side: string;
+    sideOverlay: string;
+    bottom: string;
+  };
+
+  // Type for grass normal map paths
+  type GrassNormalMapPaths = {
+    top: string;
+    side: string;
+    sideOverlay: string;
+    bottom: string;
+  };
+
   const grassTexture = getBlockTexture(BlockType.Grass) as GrassTexturePaths;
   const grassNormalMap = getBlockNormalMap(BlockType.Grass) as GrassNormalMapPaths;
 
@@ -170,7 +170,7 @@ export async function loadBlockTextures(): Promise<Record<string, Texture>> {
  * @param overlayColor - The overlay color texture (used for alpha mask)
  * @returns A new composed normal map
  */
-export function composeNormalMaps(base: Texture, overlay: Texture, overlayColor: Texture): Texture {
+function composeNormalMaps(base: Texture, overlay: Texture, overlayColor: Texture): Texture {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) return base;
@@ -218,7 +218,7 @@ export function composeNormalMaps(base: Texture, overlay: Texture, overlayColor:
  * @param colorHex - The hex color to tint the overlay
  * @returns A new composed texture
  */
-export function composeTextures(base: Texture, overlay: Texture, colorHex: string): Texture {
+function composeTextures(base: Texture, overlay: Texture, colorHex: string): Texture {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) return base;

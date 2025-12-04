@@ -7,17 +7,15 @@
   import { createUI } from "../utils/ui";
   import { World } from "../utils/world.svelte";
 
-  const world = new World();
-
-  const textures = loadBlockTextures();
-
   const { renderer } = useThrelte();
-
   // Shader-style renderer settings - bright sunny day
   renderer.toneMappingExposure = 1.6;
 
-  let flyControls: FlyControls | null = null;
+  // Initialize world
+  const world = new World();
 
+  // Controls and UI
+  let flyControls: FlyControls | null = null;
   let ui: ReturnType<typeof createUI>;
   onMount(() => {
     // Initialize UI with current world state
@@ -60,7 +58,7 @@
 <!-- Main Sun - Bright dominant sunlight (high contrast shader look) -->
 <T.DirectionalLight
   position={[80, 120, 50]}
-  intensity={5.5}
+  intensity={4}
   color="#FFF8E7"
   castShadow
   oncreate={(ref) => {
@@ -98,7 +96,7 @@
 <!-- Ambient light - Subtle base fill -->
 <T.AmbientLight intensity={0.2} color="#E8F0FF" />
 
-{#await textures then txts}
+{#await loadBlockTextures() then textures}
   {#key world.matrices}
     <!-- Top -->
     {#each Object.entries(world.matrices.top) as [id, matrices] (id)}
@@ -121,8 +119,8 @@
           }}
         />
         <T.MeshStandardMaterial
-          map={getTexture(Number(id), "top", txts)}
-          normalMap={getNormalMap(Number(id), "top", txts)}
+          map={getTexture(Number(id), "top", textures)}
+          normalMap={getNormalMap(Number(id), "top", textures)}
           normalScale={[0.8, 0.8]}
           color={getBlockColor(Number(id), "top")}
           roughness={0.75}
@@ -152,8 +150,8 @@
           }}
         />
         <T.MeshStandardMaterial
-          map={getTexture(Number(id), "bottom", txts)}
-          normalMap={getNormalMap(Number(id), "bottom", txts)}
+          map={getTexture(Number(id), "bottom", textures)}
+          normalMap={getNormalMap(Number(id), "bottom", textures)}
           normalScale={[0.8, 0.8]}
           color={getBlockColor(Number(id), "bottom")}
           roughness={0.75}
@@ -182,8 +180,8 @@
           }}
         />
         <T.MeshStandardMaterial
-          map={getTexture(Number(id), "front", txts)}
-          normalMap={getNormalMap(Number(id), "front", txts)}
+          map={getTexture(Number(id), "front", textures)}
+          normalMap={getNormalMap(Number(id), "front", textures)}
           normalScale={[0.8, 0.8]}
           color={getBlockColor(Number(id), "front")}
           roughness={0.75}
@@ -213,8 +211,8 @@
           }}
         />
         <T.MeshStandardMaterial
-          map={getTexture(Number(id), "back", txts)}
-          normalMap={getNormalMap(Number(id), "back", txts)}
+          map={getTexture(Number(id), "back", textures)}
+          normalMap={getNormalMap(Number(id), "back", textures)}
           normalScale={[0.8, 0.8]}
           color={getBlockColor(Number(id), "back")}
           roughness={0.75}
@@ -244,8 +242,8 @@
           }}
         />
         <T.MeshStandardMaterial
-          map={getTexture(Number(id), "left", txts)}
-          normalMap={getNormalMap(Number(id), "left", txts)}
+          map={getTexture(Number(id), "left", textures)}
+          normalMap={getNormalMap(Number(id), "left", textures)}
           normalScale={[0.8, 0.8]}
           color={getBlockColor(Number(id), "left")}
           roughness={0.75}
@@ -275,8 +273,8 @@
           }}
         />
         <T.MeshStandardMaterial
-          map={getTexture(Number(id), "right", txts)}
-          normalMap={getNormalMap(Number(id), "right", txts)}
+          map={getTexture(Number(id), "right", textures)}
+          normalMap={getNormalMap(Number(id), "right", textures)}
           normalScale={[0.8, 0.8]}
           color={getBlockColor(Number(id), "right")}
           roughness={0.75}
