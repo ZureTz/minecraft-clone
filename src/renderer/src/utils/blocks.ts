@@ -1,12 +1,18 @@
 import { Color } from "three";
 
 import coalOre from "../assets/textures/coal_ore.png";
+import coalOreN from "../assets/textures/coal_ore_n.png";
 import dirt from "../assets/textures/dirt.png";
+import dirtN from "../assets/textures/dirt_n.png";
 import grassSide from "../assets/textures/grass_side.png";
 import grassSideOverlay from "../assets/textures/grass_side_overlay.png";
+import grassSideOverlayN from "../assets/textures/grass_side_overlay_n.png";
 import grassTop from "../assets/textures/grass_top.png";
+import grassTopN from "../assets/textures/grass_top_n.png";
 import ironOre from "../assets/textures/iron_ore.png";
+import ironOreN from "../assets/textures/iron_ore_n.png";
 import stone from "../assets/textures/stone.png";
+import stoneN from "../assets/textures/stone_n.png";
 
 export enum BlockType {
   Empty = 0,
@@ -17,18 +23,30 @@ export enum BlockType {
   IronOre = 5
 }
 
+type BlockTexture =
+  | string
+  | {
+      top: string;
+      side: string;
+      sideOverlay?: string;
+      bottom: string;
+    };
+
+type BlockNormalMap =
+  | string
+  | {
+      top: string;
+      side: string;
+      sideOverlay?: string;
+      bottom: string;
+    };
+
 type Block = {
   id: number;
   name: string;
   color?: Color;
-  texture?:
-    | string
-    | {
-        top: string;
-        side: string;
-        sideOverlay?: string;
-        bottom: string;
-      };
+  texture?: BlockTexture;
+  normalMap?: BlockNormalMap;
   scale?: {
     x: number;
     y: number;
@@ -48,13 +66,20 @@ export const Blocks: Record<number, Block> = {
       side: grassSide,
       sideOverlay: grassSideOverlay,
       bottom: dirt
+    },
+    normalMap: {
+      top: grassTopN,
+      side: dirtN,
+      sideOverlay: grassSideOverlayN,
+      bottom: dirtN
     }
   },
   [BlockType.Dirt]: {
     id: BlockType.Dirt,
     name: "dirt",
     color: new Color().setHex(0x5e4123),
-    texture: dirt
+    texture: dirt,
+    normalMap: dirtN
   },
   [BlockType.Stone]: {
     id: BlockType.Stone,
@@ -62,7 +87,8 @@ export const Blocks: Record<number, Block> = {
     color: new Color().setHex(0x888888),
     scale: { x: 30, y: 30, z: 30 },
     scarcity: 0.5,
-    texture: stone
+    texture: stone,
+    normalMap: stoneN
   },
   [BlockType.CoalOre]: {
     id: BlockType.CoalOre,
@@ -70,7 +96,8 @@ export const Blocks: Record<number, Block> = {
     color: new Color().setHex(0x333333),
     scale: { x: 15, y: 15, z: 15 },
     scarcity: 0.8,
-    texture: coalOre
+    texture: coalOre,
+    normalMap: coalOreN
   },
   [BlockType.IronOre]: {
     id: BlockType.IronOre,
@@ -78,7 +105,8 @@ export const Blocks: Record<number, Block> = {
     color: new Color().setHex(0xffa500),
     scale: { x: 10, y: 10, z: 10 },
     scarcity: 0.9,
-    texture: ironOre
+    texture: ironOre,
+    normalMap: ironOreN
   }
 };
 
@@ -94,6 +122,14 @@ export function getBlockTexture(id: number) {
   const block = Blocks[id];
   if (block && block.texture) {
     return block.texture;
+  }
+  return null;
+}
+
+export function getBlockNormalMap(id: number) {
+  const block = Blocks[id];
+  if (block && block.normalMap) {
+    return block.normalMap;
   }
   return null;
 }

@@ -34,15 +34,15 @@ export interface WorldParams {
 
 export class World {
   // State using runes
-  width = $state(64);
-  depth = $state(64);
-  height = $state(32);
+  width = $state(256);
+  depth = $state(256);
+  height = $state(48);
 
   private terrain = $state({
     seed: Math.round(Math.random() * 10000),
     scale: 30,
-    magnitude: 0.5,
-    offset: 0.2
+    magnitude: 0.3,
+    offset: 0.5
   });
 
   private rng = $derived(new RNG(this.terrain.seed));

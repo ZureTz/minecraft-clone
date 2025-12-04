@@ -32,7 +32,7 @@ export function createUI(initialParams: UIParams, onChange: (key: string, value:
   gui.title("设置");
   // World dimensions
   gui
-    .add(params, "width", 2, 128, 1)
+    .add(params, "width", 2, 512, 1)
     .onFinishChange((v: number) => onChange("width", v))
     .name("宽度");
   gui
