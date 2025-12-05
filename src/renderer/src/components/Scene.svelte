@@ -1,21 +1,26 @@
 <script lang="ts">
-  import { T, useTask, useThrelte } from "@threlte/core";
   import { onMount } from "svelte";
-  import { FlyControls } from "three/examples/jsm/controls/FlyControls.js";
+  import { T, useTask, useThrelte } from "@threlte/core";
+  import { Object3D } from "three";
 
   import { getBlockColor, getNormalMap, getTexture, loadBlockTextures } from "../utils/textures";
   import { createUI } from "../utils/ui";
   import { World } from "../utils/world.svelte";
+  import Player from "./Player.svelte";
 
   const { renderer } = useThrelte();
   // Shader-style renderer settings - bright sunny day
   renderer.toneMappingExposure = 1.6;
 
   // Initialize world
-  const world = new World();
+  interface Props {
+    world: World;
+    position?: { x: number; y: number; z: number };
+  }
 
-  // Controls and UI
-  let flyControls: FlyControls | null = null;
+  let { world, position = $bindable() }: Props = $props();
+
+  // Lil UI interface for adjusting world generation parameters
   let ui: ReturnType<typeof createUI>;
   onMount(() => {
     // Initialize UI with current world state
@@ -24,28 +29,18 @@
     });
     return () => {
       ui.destroy();
-      flyControls?.dispose();
     };
   });
 
-  useTask((delta) => {
+  useTask(() => {
     ui?.stats.update();
-    flyControls?.update(delta);
   });
+
+  let lightTarget = $state(new Object3D());
 </script>
 
-<T.PerspectiveCamera
-  makeDefault
-  position={[-48, 32, -48]}
-  fov={70}
-  oncreate={(ref) => {
-    ref.lookAt(world.width / 2, world.height / 2, world.depth / 2);
-    flyControls = new FlyControls(ref, renderer.domElement);
-    flyControls.movementSpeed = 30;
-    flyControls.rollSpeed = Math.PI / 8;
-    flyControls.dragToLook = true;
-  }}
-/>
+<!-- Player with camera and fly controls -->
+<Player {renderer} {world} bind:position />
 
 <!-- Shader-style sky - bright sunny blue -->
 <T.Color attach="background" args={["#70C0E0"]} />
@@ -55,34 +50,42 @@
 
 <!-- ============ SHADER-STYLE LIGHTING SETUP ============ -->
 
+<!-- Light Target following player -->
+{#if position}
+  <T.Object3D position={[position.x, position.y, position.z]} bind:ref={lightTarget} />
+{/if}
+
 <!-- Main Sun - Bright dominant sunlight (high contrast shader look) -->
-<T.DirectionalLight
-  position={[80, 120, 50]}
-  intensity={4}
-  color="#FFF8E7"
-  castShadow
-  oncreate={(ref) => {
-    // Extended shadow coverage for larger world
-    ref.shadow.camera.left = -120;
-    ref.shadow.camera.right = 120;
-    ref.shadow.camera.top = 120;
-    ref.shadow.camera.bottom = -120;
-    ref.shadow.camera.near = 0.5;
-    ref.shadow.camera.far = 400;
+{#if position}
+  <T.DirectionalLight
+    target={lightTarget}
+    position={[position.x + 80, position.y + 120, position.z + 50]}
+    intensity={4}
+    color="#FFF8E7"
+    castShadow
+    oncreate={(ref) => {
+      // Extended shadow coverage for larger world
+      ref.shadow.camera.left = -120;
+      ref.shadow.camera.right = 120;
+      ref.shadow.camera.top = 120;
+      ref.shadow.camera.bottom = -120;
+      ref.shadow.camera.near = 0.5;
+      ref.shadow.camera.far = 400;
 
-    // High quality shadow map
-    ref.shadow.mapSize.width = 2048;
-    ref.shadow.mapSize.height = 2048;
+      // High quality shadow map
+      ref.shadow.mapSize.width = 2048;
+      ref.shadow.mapSize.height = 2048;
 
-    // Optimized shadow bias
-    // Reduced normalBias to prevent light leaking at block seams
-    // Adjusted bias to prevent shadow acne
-    ref.shadow.bias = -0.0001;
-    ref.shadow.normalBias = 0.0002;
+      // Optimized shadow bias
+      // Reduced normalBias to prevent light leaking at block seams
+      // Adjusted bias to prevent shadow acne
+      ref.shadow.bias = -0.0001;
+      ref.shadow.normalBias = 0.0002;
 
-    ref.shadow.camera.updateProjectionMatrix();
-  }}
-/>
+      ref.shadow.camera.updateProjectionMatrix();
+    }}
+  />
+{/if}
 
 <!-- Sky light - Soft blue fill from opposite direction -->
 <T.DirectionalLight position={[-60, 80, -40]} intensity={0.5} color="#87CEEB" />

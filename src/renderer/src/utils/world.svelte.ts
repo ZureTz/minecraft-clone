@@ -38,9 +38,13 @@ export class World {
   depth = $state(256);
   height = $state(48);
 
+  // Generation state
+  isGenerating = $state(true);
+  generation = $state<{ data: WorldData; blocks: WorldMatrices } | null>(null);
+
   private terrain = $state({
     seed: Math.round(Math.random() * 10000),
-    scale: 30,
+    scale: 60,
     magnitude: 0.3,
     offset: 0.5
   });
@@ -67,22 +71,49 @@ export class World {
     if (params.height) this.height = params.height;
     if (params.depth) this.depth = params.depth;
     if (params.terrain) {
-      if (params.terrain.seed !== undefined) this.terrain.seed = params.terrain.seed;
-      if (params.terrain.scale !== undefined) this.terrain.scale = params.terrain.scale;
-      if (params.terrain.magnitude !== undefined) this.terrain.magnitude = params.terrain.magnitude;
-      if (params.terrain.offset !== undefined) this.terrain.offset = params.terrain.offset;
+      if (params.terrain.seed) this.terrain.seed = params.terrain.seed;
+      if (params.terrain.scale) this.terrain.scale = params.terrain.scale;
+      if (params.terrain.magnitude) this.terrain.magnitude = params.terrain.magnitude;
+      if (params.terrain.offset) this.terrain.offset = params.terrain.offset;
     }
+
+    $effect(() => {
+      // Track dependencies
+      this.width;
+      this.height;
+      this.depth;
+      this.terrain.seed;
+      this.terrain.scale;
+      this.terrain.magnitude;
+      this.terrain.offset;
+
+      // Read resources to track changes
+      Object.values(this.resources).forEach((r) => {
+        r.scarcity;
+        r.scale.x;
+        r.scale.y;
+        r.scale.z;
+      });
+
+      this.generate();
+    });
   }
 
-  // Derived state: The generated world data and matrices
-  // This will automatically re-calculate whenever any dependency (width, height, terrain) changes.
-  generation = $derived.by(() => {
+  async generate() {
+    this.isGenerating = true;
+
+    // Yield to allow UI updates
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Generation Steps
     const data = this.initializeData();
     this.generateTerrain(data);
     this.generateResources(data);
     const blocks = this.generateMatrices(data);
-    return { data, blocks };
-  });
+
+    this.isGenerating = false;
+    this.generation = { data, blocks };
+  }
 
   // 1. Initialize Data
   initializeData(): WorldData {
@@ -231,11 +262,20 @@ export class World {
 
   // Getters to access the derived data
   get data() {
-    return this.generation.data;
+    return this.generation?.data ?? [];
   }
 
   get matrices() {
-    return this.generation.blocks;
+    return (
+      this.generation?.blocks ?? {
+        top: {},
+        bottom: {},
+        left: {},
+        right: {},
+        front: {},
+        back: {}
+      }
+    );
   }
 
   // Helpers

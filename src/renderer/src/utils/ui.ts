@@ -1,6 +1,7 @@
 import Stats from "three/examples/jsm/libs/stats.module.js";
 import GUI from "three/examples/jsm/libs/lil-gui.module.min.js";
 import { resources } from "./blocks";
+import { playerController } from "./player.svelte";
 
 interface UIParams {
   width: number;
@@ -22,6 +23,7 @@ interface UIParams {
 
 export function createUI(initialParams: UIParams, onChange: (key: string, value: number) => void) {
   const stats = new Stats();
+  stats.dom.classList.add("stats-ui");
   document.body.appendChild(stats.dom);
 
   const gui = new GUI();
@@ -30,6 +32,7 @@ export function createUI(initialParams: UIParams, onChange: (key: string, value:
   const params = { ...initialParams };
 
   gui.title("设置");
+
   // World dimensions
   gui
     .add(params, "width", 2, 512, 1)
@@ -39,6 +42,11 @@ export function createUI(initialParams: UIParams, onChange: (key: string, value:
     .add(params, "height", 1, 64, 1)
     .onFinishChange((v: number) => onChange("height", v))
     .name("高度");
+
+  // Player params
+  const playerFolder = gui.addFolder("玩家");
+  playerFolder.add(playerController, "defaultAcceleration", 100, 2000, 10).name("移动速度");
+  playerFolder.add(playerController, "damping", 1, 20, 0.1).name("阻尼");
 
   // Terrain params
   const terrainFolder = gui.addFolder("地形");
@@ -61,12 +69,15 @@ export function createUI(initialParams: UIParams, onChange: (key: string, value:
 
   // Resources params
   const resourcesFolder = gui.addFolder("资源");
+  resourcesFolder.close();
 
   resources.forEach((resource) => {
     const resourceParams = params.resources[resource.id];
     if (!resourceParams) return;
 
     const folder = resourcesFolder.addFolder(resource.name);
+    folder.close();
+
     folder
       .add(resourceParams, "scarcity", 0, 1, 0.01)
       .onFinishChange((v: number) => onChange(`resources.${resource.id}.scarcity`, v))
