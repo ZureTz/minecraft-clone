@@ -10,8 +10,9 @@ export class PlayerController {
   moveUp = $state(false);
   moveDown = $state(false);
 
-  // Physics parameters
-  defaultAcceleration = $state(300);
+    // Physics parameters
+  moveSpeed = $state(10); // Units per second
+  defaultAcceleration = $derived(this.moveSpeed * 60); // Approx conversion for feel
   damping = $state(10);
   // Sprint state
   isSprinting = $state(false);
