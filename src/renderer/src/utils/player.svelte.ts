@@ -38,7 +38,10 @@ export class PlayerController {
     BlockType.Grass,
     BlockType.Stone,
     BlockType.CoalOre,
-    BlockType.IronOre
+    BlockType.IronOre,
+    BlockType.OakLog,
+    BlockType.OakLeaves,
+    BlockType.Water
   ];
 
   // Internal physics state

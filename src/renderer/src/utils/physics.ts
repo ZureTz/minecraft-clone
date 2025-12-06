@@ -29,7 +29,7 @@ export class Physics {
       for (let y = minY; y <= maxY; y++) {
         for (let z = minZ; z <= maxZ; z++) {
           const block = this.world.getBlock(x, y, z);
-          if (!block || block.id === BlockType.Empty) {
+          if (!block || block.id === BlockType.Empty || block.id === BlockType.Water) {
             continue;
           }
 

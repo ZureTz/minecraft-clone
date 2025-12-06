@@ -11,6 +11,7 @@ interface UIParams {
     scale: number;
     magnitude: number;
     offset: number;
+    waterOffset: number;
   };
   resources: Record<
     number,
@@ -66,6 +67,11 @@ export function createUI(initialParams: UIParams, onChange: (key: string, value:
     .add(params.terrain, "offset", 0, 1, 0.01)
     .onFinishChange((v: number) => onChange("terrain.offset", v))
     .name("偏移");
+  terrainFolder
+    .add(params.terrain, "waterOffset", 0, 32, 1)
+    .onFinishChange((v: number) => onChange("terrain.waterOffset", v))
+    .name("水位高度")
+    .listen(); // Listen for changes from code
 
   // Resources params
   const resourcesFolder = gui.addFolder("资源");

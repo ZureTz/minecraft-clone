@@ -8,6 +8,7 @@
   import { World } from "../utils/world.svelte";
   import { playerController } from "../utils/player.svelte";
   import Player from "./Player.svelte";
+  import { BlockType } from "../utils/blocks";
 
   const { renderer } = useThrelte();
   // Shader-style renderer settings - bright sunny day
@@ -129,6 +130,9 @@
           color={getBlockColor(Number(id), "top")}
           roughness={0.75}
           metalness={0}
+          transparent={Number(id) === BlockType.Water}
+          opacity={Number(id) === BlockType.Water ? 0.6 : 1}
+          alphaTest={Number(id) === BlockType.OakLeaves ? 0.1 : 0}
         />
       </T.InstancedMesh>
     {/each}
@@ -160,6 +164,9 @@
           color={getBlockColor(Number(id), "bottom")}
           roughness={0.75}
           metalness={0}
+          transparent={Number(id) === BlockType.Water}
+          opacity={Number(id) === BlockType.Water ? 0.6 : 1}
+          alphaTest={Number(id) === BlockType.OakLeaves ? 0.1 : 0}
         />
       </T.InstancedMesh>
     {/each}
@@ -190,6 +197,9 @@
           color={getBlockColor(Number(id), "front")}
           roughness={0.75}
           metalness={0}
+          transparent={Number(id) === BlockType.Water}
+          opacity={Number(id) === BlockType.Water ? 0.6 : 1}
+          alphaTest={Number(id) === BlockType.OakLeaves ? 0.1 : 0}
         />
       </T.InstancedMesh>
     {/each}
@@ -221,6 +231,9 @@
           color={getBlockColor(Number(id), "back")}
           roughness={0.75}
           metalness={0}
+          transparent={Number(id) === BlockType.Water}
+          opacity={Number(id) === BlockType.Water ? 0.6 : 1}
+          alphaTest={Number(id) === BlockType.OakLeaves ? 0.1 : 0}
         />
       </T.InstancedMesh>
     {/each}
@@ -252,6 +265,9 @@
           color={getBlockColor(Number(id), "left")}
           roughness={0.75}
           metalness={0}
+          transparent={Number(id) === BlockType.Water}
+          opacity={Number(id) === BlockType.Water ? 0.6 : 1}
+          alphaTest={Number(id) === BlockType.OakLeaves ? 0.1 : 0}
         />
       </T.InstancedMesh>
     {/each}
@@ -283,6 +299,9 @@
           color={getBlockColor(Number(id), "right")}
           roughness={0.75}
           metalness={0}
+          transparent={Number(id) === BlockType.Water}
+          opacity={Number(id) === BlockType.Water ? 0.6 : 1}
+          alphaTest={Number(id) === BlockType.OakLeaves ? 0.1 : 0}
         />
       </T.InstancedMesh>
     {/each}
@@ -291,7 +310,7 @@
 
 <!-- Highlighted Block Outline -->
 {#if playerController.highlightedBlock}
-  {@const { x, y, z } = playerController.highlightedBlock}
+  {@const { x, y, z } = playerController.highlightedBlock}}
   <T.Mesh position={[x + 0.5, y + 0.5, z + 0.5]}>
     <T.BoxGeometry args={[1.01, 1.01, 1.01]} />
     <T.MeshBasicMaterial color="#ffff00" transparent opacity={0.4} />

@@ -18,12 +18,47 @@
 {#if world.isGenerating}
   <!-- Show Loading Spinner -->
   <div
-    class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-linear-to-br from-gray-900 via-gray-800 to-black text-white backdrop-blur-md"
+    class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-linear-to-b from-slate-950 via-emerald-950 to-slate-950 text-white"
   >
-    <div
-      class="mb-5 h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-green-500"
-    ></div>
-    <p class="text-xl font-semibold tracking-wide drop-shadow-lg">Generating World...</p>
+    <!-- Animated background elements -->
+    <div class="absolute inset-0 overflow-hidden">
+      <div
+        class="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl animate-pulse"
+      ></div>
+      <div
+        class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"
+        style="animation-delay: 1s;"
+      ></div>
+    </div>
+
+    <!-- Content -->
+    <div class="relative z-10 flex flex-col items-center gap-8">
+      <!-- Spinning Cube Icon -->
+      <div class="relative w-24 h-24">
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div
+            class="w-20 h-20 rounded-lg border-2 border-emerald-400 border-t-cyan-300 border-r-cyan-300 animate-spin"
+          ></div>
+        </div>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div
+            class="w-12 h-12 rounded-md bg-linear-to-br from-emerald-400 to-emerald-600 opacity-60"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Loading Text -->
+      <div class="text-center space-y-3">
+        <h1
+          class="text-3xl font-bold tracking-tight bg-linear-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent"
+        >
+          Generating World
+        </h1>
+        <p class="text-sm text-slate-300 font-medium tracking-widest">
+          Procedural Generation In Progress...
+        </p>
+      </div>
+    </div>
   </div>
 {:else}
   <!-- Main Canvas -->

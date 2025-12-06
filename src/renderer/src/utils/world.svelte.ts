@@ -47,7 +47,21 @@ export class World {
     seed: Math.round(Math.random() * 10000),
     scale: 60,
     magnitude: 0.3,
-    offset: 0.5
+    offset: 0.5,
+    waterOffset: 12 // Water level height
+  });
+
+  private trees = $state({
+    frequency: 0.02, // Chance of tree spawning per block
+    trunk: {
+      minHeight: 4,
+      maxHeight: 7
+    },
+    canopy: {
+      minRadius: 2,
+      maxRadius: 3,
+      density: 0.7 // Leaf density in canopy
+    }
   });
 
   private rng = $derived(new RNG(this.terrain.seed));
@@ -90,6 +104,7 @@ export class World {
       this.terrain.scale;
       this.terrain.magnitude;
       this.terrain.offset;
+      this.terrain.waterOffset;
 
       // Read resources to track changes
       Object.values(this.resources).forEach((r) => {
@@ -113,6 +128,8 @@ export class World {
     const data = this.initializeData();
     this.generateTerrain(data);
     this.generateResources(data);
+    this.generateWater(data);
+    this.generateTrees(data);
     const blocks = this.generateMatrices(data);
 
     this.isGenerating = false;
@@ -201,7 +218,100 @@ export class World {
     }
   }
 
-  // 4. Generate Matrices
+  // 4. Generate Trees
+  generateTrees(data: WorldData) {
+    for (let x = 0; x < this.width; x++) {
+      for (let z = 0; z < this.depth; z++) {
+        // Find the surface height at this x, z position
+        let surfaceY = -1;
+        for (let y = this.height - 1; y >= 0; y--) {
+          if (data[x][y][z].id === BlockType.Grass && data[x][y + 1][z].id === BlockType.Empty) {
+            surfaceY = y;
+            break;
+          }
+        }
+
+        // Skip if no grass surface found or too close to edge
+        if (surfaceY === -1 || surfaceY >= this.height - 10) continue;
+
+        // Random chance to generate a tree
+        if (this.rng.random() < this.trees.frequency) {
+          this.generateTree(data, x, surfaceY + 1, z);
+        }
+      }
+    }
+  }
+
+  // Generate a single tree at position
+  private generateTree(data: WorldData, x: number, baseY: number, z: number) {
+    const minH = this.trees.trunk.minHeight;
+    const maxH = this.trees.trunk.maxHeight;
+    const trunkHeight = Math.round(minH + (maxH - minH) * this.rng.random());
+
+    // Generate trunk
+    for (let y = 0; y < trunkHeight; y++) {
+      const currentY = baseY + y;
+      if (currentY >= this.height) break;
+      if (this.isInBounds(x, currentY, z)) {
+        data[x][currentY][z] = { id: BlockType.OakLog, instanceId: null };
+      }
+    }
+
+    // Generate canopy
+    const canopyY = baseY + trunkHeight;
+    this.generateTreeCanopy(data, x, canopyY, z);
+  }
+
+  // Generate spherical tree canopy
+  private generateTreeCanopy(data: WorldData, centerX: number, centerY: number, centerZ: number) {
+    const minR = this.trees.canopy.minRadius;
+    const maxR = this.trees.canopy.maxRadius;
+    const radius = Math.round(minR + (maxR - minR) * this.rng.random());
+
+    for (let x = -radius; x <= radius; x++) {
+      for (let y = -radius; y <= radius; y++) {
+        for (let z = -radius; z <= radius; z++) {
+          // Check if within sphere
+          const distSq = x * x + y * y + z * z;
+          if (distSq > radius * radius) continue;
+
+          const blockX = centerX + x;
+          const blockY = centerY + y;
+          const blockZ = centerZ + z;
+
+          // Check bounds
+          if (!this.isInBounds(blockX, blockY, blockZ)) continue;
+
+          // Don't overwrite existing non-air blocks (except grass)
+          const existingBlock = data[blockX][blockY][blockZ].id;
+          if (existingBlock !== BlockType.Empty && existingBlock !== BlockType.Grass) continue;
+
+          // Apply density factor
+          if (this.rng.random() < this.trees.canopy.density) {
+            data[blockX][blockY][blockZ] = { id: BlockType.OakLeaves, instanceId: null };
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Generate Water
+  generateWater(data: WorldData) {
+    const waterLevel = this.terrain.waterOffset;
+
+    for (let x = 0; x < this.width; x++) {
+      for (let z = 0; z < this.depth; z++) {
+        for (let y = 0; y <= waterLevel; y++) {
+          // Only fill empty spaces below water level
+          if (data[x][y][z].id === BlockType.Empty) {
+            data[x][y][z] = { id: BlockType.Water, instanceId: null };
+          }
+        }
+      }
+    }
+  }
+
+  // 6. Generate Matrices
   generateMatrices(data: WorldData): WorldMatrices {
     const matrices: WorldMatrices = {
       top: {},
@@ -216,6 +326,9 @@ export class World {
     const height = this.height;
     const depth = this.depth;
 
+    const isTransparent = (id: number) =>
+      id === BlockType.Empty || id === BlockType.OakLeaves || id === BlockType.Water;
+
     for (let x = 0; x < width; x++) {
       for (let y = 0; y < height; y++) {
         for (let z = 0; z < depth; z++) {
@@ -223,26 +336,6 @@ export class World {
 
           // Skip empty blocks
           if (block.id === BlockType.Empty) continue;
-
-          // Skip obscured blocks
-          const isObscured =
-            y < height - 1 &&
-            y > 0 &&
-            x < width - 1 &&
-            x > 0 &&
-            z < depth - 1 &&
-            z > 0 &&
-            data[x][y + 1][z].id !== BlockType.Empty &&
-            data[x][y - 1][z].id !== BlockType.Empty &&
-            data[x + 1][y][z].id !== BlockType.Empty &&
-            data[x - 1][y][z].id !== BlockType.Empty &&
-            data[x][y][z + 1].id !== BlockType.Empty &&
-            data[x][y][z - 1].id !== BlockType.Empty;
-
-          if (isObscured) {
-            block.instanceId = null;
-            continue;
-          }
 
           const matrix = new Matrix4();
           matrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
@@ -256,28 +349,36 @@ export class World {
             instanceCount++;
           };
 
+          const shouldRenderFace = (neighborId: number) => {
+            if (isTransparent(neighborId)) {
+              if (block.id === neighborId) return false;
+              return true;
+            }
+            return false;
+          };
+
           // Top
-          if (y === height - 1 || data[x][y + 1][z].id === BlockType.Empty) {
+          if (y === height - 1 || shouldRenderFace(data[x][y + 1][z].id)) {
             addMatrix("top");
           }
           // Bottom
-          if (y === 0 || data[x][y - 1][z].id === BlockType.Empty) {
+          if (y === 0 || shouldRenderFace(data[x][y - 1][z].id)) {
             addMatrix("bottom");
           }
           // Right (+x)
-          if (x === width - 1 || data[x + 1][y][z].id === BlockType.Empty) {
+          if (x === width - 1 || shouldRenderFace(data[x + 1][y][z].id)) {
             addMatrix("right");
           }
           // Left (-x)
-          if (x === 0 || data[x - 1][y][z].id === BlockType.Empty) {
+          if (x === 0 || shouldRenderFace(data[x - 1][y][z].id)) {
             addMatrix("left");
           }
           // Front (+z)
-          if (z === depth - 1 || data[x][y][z + 1].id === BlockType.Empty) {
+          if (z === depth - 1 || shouldRenderFace(data[x][y][z + 1].id)) {
             addMatrix("front");
           }
           // Back (-z)
-          if (z === 0 || data[x][y][z - 1].id === BlockType.Empty) {
+          if (z === 0 || shouldRenderFace(data[x][y][z - 1].id)) {
             addMatrix("back");
           }
 
@@ -429,20 +530,33 @@ export class World {
     const width = this.width;
     const height = this.height;
     const depth = this.depth;
+    const currentBlockId = this.generation.data[x][y][z].id;
+
+    const isTransparent = (id: number) =>
+      id === BlockType.Empty || id === BlockType.OakLeaves || id === BlockType.Water;
+
+    const checkNeighbor = (nx: number, ny: number, nz: number) => {
+      const neighborId = this.generation!.data[nx][ny][nz].id;
+      if (isTransparent(neighborId)) {
+        if (currentBlockId === neighborId) return false;
+        return true;
+      }
+      return false;
+    };
 
     switch (face) {
       case "top":
-        return y === height - 1 || this.generation.data[x][y + 1][z].id === BlockType.Empty;
+        return y === height - 1 || checkNeighbor(x, y + 1, z);
       case "bottom":
-        return y === 0 || this.generation.data[x][y - 1][z].id === BlockType.Empty;
+        return y === 0 || checkNeighbor(x, y - 1, z);
       case "right":
-        return x === width - 1 || this.generation.data[x + 1][y][z].id === BlockType.Empty;
+        return x === width - 1 || checkNeighbor(x + 1, y, z);
       case "left":
-        return x === 0 || this.generation.data[x - 1][y][z].id === BlockType.Empty;
+        return x === 0 || checkNeighbor(x - 1, y, z);
       case "front":
-        return z === depth - 1 || this.generation.data[x][y][z + 1].id === BlockType.Empty;
+        return z === depth - 1 || checkNeighbor(x, y, z + 1);
       case "back":
-        return z === 0 || this.generation.data[x][y][z - 1].id === BlockType.Empty;
+        return z === 0 || checkNeighbor(x, y, z - 1);
     }
   }
 
@@ -572,12 +686,22 @@ export class World {
       this.width = value;
       this.depth = value;
     }
-    if (key === "height") this.height = value;
+    if (key === "height") {
+      this.height = value;
+      // Auto-adjust water level when height changes
+      this.terrain.waterOffset = Math.floor(this.height * 0.2);
+    }
 
     if (key === "terrain.seed") this.terrain.seed = value;
     if (key === "terrain.scale") this.terrain.scale = value;
     if (key === "terrain.magnitude") this.terrain.magnitude = value;
-    if (key === "terrain.offset") this.terrain.offset = value;
+    if (key === "terrain.offset") {
+      this.terrain.offset = value;
+      // Auto-adjust water level when terrain offset changes
+      // Water usually sits in the "valleys", so we place it below the average height
+      this.terrain.waterOffset = Math.max(0, Math.floor(this.height * (value - 0.15)));
+    }
+    if (key === "terrain.waterOffset") this.terrain.waterOffset = value;
 
     if (key.startsWith("resources.")) {
       const parts = key.split(".");

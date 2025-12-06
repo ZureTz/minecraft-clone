@@ -31,6 +31,13 @@ export function getTexture(
     texture = txts.coalOre;
   } else if (id === BlockType.IronOre) {
     texture = txts.ironOre;
+  } else if (id === BlockType.OakLog) {
+    if (face === "top" || face === "bottom") texture = txts.oakLogTop;
+    else texture = txts.oakLog;
+  } else if (id === BlockType.OakLeaves) {
+    texture = txts.oakLeaves;
+  } else if (id === BlockType.Water) {
+    texture = txts.water;
   }
 
   if (texture) {
@@ -70,6 +77,9 @@ export function getNormalMap(
     normalMap = txts.coalOreN;
   } else if (id === BlockType.IronOre) {
     normalMap = txts.ironOreN;
+  } else if (id === BlockType.OakLog) {
+    if (face === "top" || face === "bottom") normalMap = txts.oakLogTopN;
+    else normalMap = txts.oakLogN;
   }
 
   if (normalMap) {
@@ -81,8 +91,10 @@ export function getNormalMap(
   return normalMap;
 }
 
-// Grass block color constant
+// Block color constants
 const GRASS_COLOR = "#3fab24";
+const OAK_LEAVES_COLOR = "#4f9e34";
+const WATER_COLOR = "#3f76e4";
 
 /**
  * Get the tint color for a block face
@@ -93,6 +105,12 @@ const GRASS_COLOR = "#3fab24";
 export function getBlockColor(id: number, face: string): string | undefined {
   if (id === BlockType.Grass && face === "top") {
     return GRASS_COLOR;
+  }
+  if (id === BlockType.OakLeaves) {
+    return OAK_LEAVES_COLOR;
+  }
+  if (id === BlockType.Water) {
+    return WATER_COLOR;
   }
   return undefined;
 }
@@ -120,6 +138,8 @@ export async function loadBlockTextures(): Promise<Record<string, Texture>> {
 
   const grassTexture = getBlockTexture(BlockType.Grass) as GrassTexturePaths;
   const grassNormalMap = getBlockNormalMap(BlockType.Grass) as GrassNormalMapPaths;
+  const oakLogTexture = getBlockTexture(BlockType.OakLog) as any;
+  const oakLogNormalMap = getBlockNormalMap(BlockType.OakLog) as any;
 
   const txts = await useTexture({
     // Color textures
@@ -129,13 +149,19 @@ export async function loadBlockTextures(): Promise<Record<string, Texture>> {
     stone: getBlockTexture(BlockType.Stone) as string,
     coalOre: getBlockTexture(BlockType.CoalOre) as string,
     ironOre: getBlockTexture(BlockType.IronOre) as string,
+    oakLog: oakLogTexture.side,
+    oakLogTop: oakLogTexture.top,
+    oakLeaves: getBlockTexture(BlockType.OakLeaves) as string,
+    water: getBlockTexture(BlockType.Water) as string,
     // Normal maps
     grassTopN: grassNormalMap.top,
     grassSideOverlayN: grassNormalMap.sideOverlay,
     dirtN: grassNormalMap.bottom,
     stoneN: getBlockNormalMap(BlockType.Stone) as string,
     coalOreN: getBlockNormalMap(BlockType.CoalOre) as string,
-    ironOreN: getBlockNormalMap(BlockType.IronOre) as string
+    ironOreN: getBlockNormalMap(BlockType.IronOre) as string,
+    oakLogN: oakLogNormalMap.side,
+    oakLogTopN: oakLogNormalMap.top
   });
 
   // Create composite color texture - use dirt as base for consistent color

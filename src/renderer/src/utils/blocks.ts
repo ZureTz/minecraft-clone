@@ -13,6 +13,12 @@ import ironOre from "../assets/textures/iron_ore.png";
 import ironOreN from "../assets/textures/iron_ore_n.png";
 import stone from "../assets/textures/stone.png";
 import stoneN from "../assets/textures/stone_n.png";
+import oakLog from "../assets/textures/oak_log.png";
+import oakLogN from "../assets/textures/oak_log_n.png";
+import oakLogTop from "../assets/textures/oak_log_top.png";
+import oakLogTopN from "../assets/textures/oak_log_top_n.png";
+import oakLeaves from "../assets/textures/oak_leaves.png";
+import water from "../assets/textures/water_still.png";
 
 export enum BlockType {
   Empty = 0,
@@ -20,7 +26,10 @@ export enum BlockType {
   Dirt = 2,
   Stone = 3,
   CoalOre = 4,
-  IronOre = 5
+  IronOre = 5,
+  OakLog = 6,
+  OakLeaves = 7,
+  Water = 8
 }
 
 type BlockTexture =
@@ -107,6 +116,33 @@ export const Blocks: Record<number, Block> = {
     scarcity: 0.9,
     texture: ironOre,
     normalMap: ironOreN
+  },
+  [BlockType.OakLog]: {
+    id: BlockType.OakLog,
+    name: "oak_log",
+    color: new Color().setHex(0x9c7f4e),
+    texture: {
+      top: oakLogTop,
+      side: oakLog,
+      bottom: oakLogTop
+    },
+    normalMap: {
+      top: oakLogTopN,
+      side: oakLogN,
+      bottom: oakLogTopN
+    }
+  },
+  [BlockType.OakLeaves]: {
+    id: BlockType.OakLeaves,
+    name: "oak_leaves",
+    color: new Color().setHex(0x4f9e34),
+    texture: oakLeaves
+  },
+  [BlockType.Water]: {
+    id: BlockType.Water,
+    name: "water",
+    color: new Color().setHex(0x3f76e4),
+    texture: water
   }
 };
 
