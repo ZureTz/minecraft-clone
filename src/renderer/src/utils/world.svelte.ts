@@ -36,7 +36,7 @@ export class World {
   // State using runes
   width = $state(256);
   depth = $state(256);
-  height = $state(48);
+  height = $state(32);
 
   // Generation state
   isGenerating = $state(true);
@@ -281,6 +281,11 @@ export class World {
   // Helpers
   isInBounds(x: number, y: number, z: number): boolean {
     return x >= 0 && x < this.width && y >= 0 && y < this.height && z >= 0 && z < this.depth;
+  }
+
+  getBlock(x: number, y: number, z: number) {
+    if (!this.isInBounds(x, y, z)) return null;
+    return this.data[x][y][z];
   }
 
   getUIParams() {

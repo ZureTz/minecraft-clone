@@ -45,7 +45,7 @@ export function createUI(initialParams: UIParams, onChange: (key: string, value:
 
   // Player params
   const playerFolder = gui.addFolder("玩家");
-  playerFolder.add(playerController, "moveSpeed", 1, 50, 1).name("移动速度");
+  playerFolder.add(playerController, "moveSpeed", 0.5, 10, 0.1).name("移动速度");
   playerFolder.add(playerController, "damping", 1, 20, 0.1).name("阻尼");
 
   // Terrain params

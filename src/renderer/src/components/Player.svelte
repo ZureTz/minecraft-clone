@@ -52,6 +52,6 @@
   fov={playerController.fov}
   oncreate={(ref) => {
     ref.lookAt(world.width / 2, world.height / 2, world.depth / 2);
-    playerController.init(ref, renderer.domElement);
+    playerController.init(ref, renderer.domElement, world);
   }}
 />
