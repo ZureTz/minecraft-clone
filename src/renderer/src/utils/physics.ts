@@ -8,8 +8,8 @@ export class Physics {
   onGround = false;
 
   private radius = 0.4;
-  private height = 2;
-  private playerEyeHeight = 1.9;
+  private height = 1.8;
+  private playerEyeHeight = 1.75;
 
   constructor(private world: World) {}
 

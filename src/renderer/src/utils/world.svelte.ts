@@ -1,4 +1,4 @@
-import { Matrix4 } from "three";
+import { Matrix4, Vector3 } from "three";
 import { SimplexNoise } from "three/examples/jsm/Addons.js";
 import { clamp } from "three/src/math/MathUtils.js";
 
@@ -7,6 +7,7 @@ import { BlockType, resources } from "./blocks";
 
 type BlockData = {
   id: number;
+  instanceId: number | null;
 };
 
 type WorldData = BlockData[][][];
@@ -66,6 +67,9 @@ export class World {
     )
   );
 
+  // Reusable objects to avoid GC pressure
+  private _tempVector = new Vector3();
+
   constructor(params: WorldParams = {}) {
     if (params.width) this.width = params.width;
     if (params.height) this.height = params.height;
@@ -119,7 +123,7 @@ export class World {
   initializeData(): WorldData {
     return Array.from({ length: this.width }, () =>
       Array.from({ length: this.height }, () =>
-        Array.from({ length: this.depth }, () => ({ id: BlockType.Empty }))
+        Array.from({ length: this.depth }, () => ({ id: BlockType.Empty, instanceId: null }))
       )
     );
   }
@@ -151,7 +155,7 @@ export class World {
             if (noiseValue < scarcity) {
               continue;
             }
-            data[x][y][z] = { id: resource.id };
+            data[x][y][z] = { id: resource.id, instanceId: null };
             // Once a resource is placed, stop checking other resources for this block
             // (Assuming resources are mutually exclusive and order defines priority)
             break;
@@ -179,19 +183,19 @@ export class World {
         for (let y = 0; y < this.height; y++) {
           // Set all blocks above height to empty
           if (y > height) {
-            data[x][y][z] = { id: BlockType.Empty };
+            data[x][y][z] = { id: BlockType.Empty, instanceId: null };
             continue;
           }
 
           // Set grass block at the surface
           if (y === height) {
-            data[x][y][z] = { id: BlockType.Grass };
+            data[x][y][z] = { id: BlockType.Grass, instanceId: null };
             continue;
           }
 
           // Otherwise, y is below the surface
           // Fall back to dirt block
-          data[x][y][z] = { id: BlockType.Dirt };
+          data[x][y][z] = { id: BlockType.Dirt, instanceId: null };
         }
       }
     }
@@ -220,14 +224,36 @@ export class World {
           // Skip empty blocks
           if (block.id === BlockType.Empty) continue;
 
+          // Skip obscured blocks
+          const isObscured =
+            y < height - 1 &&
+            y > 0 &&
+            x < width - 1 &&
+            x > 0 &&
+            z < depth - 1 &&
+            z > 0 &&
+            data[x][y + 1][z].id !== BlockType.Empty &&
+            data[x][y - 1][z].id !== BlockType.Empty &&
+            data[x + 1][y][z].id !== BlockType.Empty &&
+            data[x - 1][y][z].id !== BlockType.Empty &&
+            data[x][y][z + 1].id !== BlockType.Empty &&
+            data[x][y][z - 1].id !== BlockType.Empty;
+
+          if (isObscured) {
+            block.instanceId = null;
+            continue;
+          }
+
           const matrix = new Matrix4();
           matrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
 
+          let instanceCount = 0;
           const addMatrix = (face: keyof WorldMatrices) => {
             if (!matrices[face][block.id]) {
               matrices[face][block.id] = [];
             }
             matrices[face][block.id].push(matrix);
+            instanceCount++;
           };
 
           // Top
@@ -254,6 +280,9 @@ export class World {
           if (z === 0 || data[x][y][z - 1].id === BlockType.Empty) {
             addMatrix("back");
           }
+
+          // Set instance ID if any face was rendered
+          block.instanceId = instanceCount > 0 ? instanceCount : null;
         }
       }
     }
@@ -293,35 +322,230 @@ export class World {
     if (!this.isInBounds(x, y, z)) return false;
     if (!this.generation?.data) return false;
 
+    const block = this.generation.data[x][y][z];
+    if (block.id !== BlockType.Empty) return false; // Already occupied
+
     // Set the block
-    this.generation.data[x][y][z] = { id: blockId };
+    block.id = blockId;
 
-    // Regenerate matrices for the affected area
-    this.regenerateMatrices();
+    // Add instance for this block
+    this.addBlockInstance(x, y, z, blockId);
+
+    // Hide specific faces of neighboring blocks if they are now obscured
+    this.hideBlockFace(x - 1, y, z, "right"); // Left neighbor's right face
+    this.hideBlockFace(x + 1, y, z, "left"); // Right neighbor's left face
+    this.hideBlockFace(x, y - 1, z, "top"); // Bottom neighbor's top face
+    this.hideBlockFace(x, y + 1, z, "bottom"); // Top neighbor's bottom face
+    this.hideBlockFace(x, y, z - 1, "front"); // Back neighbor's front face
+    this.hideBlockFace(x, y, z + 1, "back"); // Front neighbor's back face
+
     return true;
-  }
-
-  // Remove a block at the specified position
+  } // Remove a block at the specified position
   removeBlock(x: number, y: number, z: number) {
     if (!this.isInBounds(x, y, z)) return false;
     if (!this.generation?.data) return false;
 
+    const block = this.generation.data[x][y][z];
+    if (block.id === BlockType.Empty) return false; // Already empty
+
+    // Delete the instance
+    this.deleteBlockInstance(x, y, z);
+
     // Set to empty
-    this.generation.data[x][y][z] = { id: BlockType.Empty };
+    block.id = BlockType.Empty;
+    block.instanceId = null;
 
-    // Regenerate matrices
-    this.regenerateMatrices();
+    // Reveal specific faces of neighboring blocks
+    this.revealBlockFace(x - 1, y, z, "right"); // Left neighbor's right face
+    this.revealBlockFace(x + 1, y, z, "left"); // Right neighbor's left face
+    this.revealBlockFace(x, y - 1, z, "top"); // Bottom neighbor's top face
+    this.revealBlockFace(x, y + 1, z, "bottom"); // Top neighbor's bottom face
+    this.revealBlockFace(x, y, z - 1, "front"); // Back neighbor's front face
+    this.revealBlockFace(x, y, z + 1, "back"); // Front neighbor's back face
+
     return true;
+  } // Add a single block instance
+  private addBlockInstance(x: number, y: number, z: number, blockId: number) {
+    if (!this.generation?.data || !this.generation?.blocks) return;
+
+    const block = this.generation.data[x][y][z];
+    if (block.instanceId !== null) return; // Already has an instance
+
+    const matrix = new Matrix4();
+    matrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
+
+    // Add to each visible face
+    const faces: Array<keyof WorldMatrices> = ["top", "bottom", "left", "right", "front", "back"];
+    for (const face of faces) {
+      if (this.shouldRenderFace(x, y, z, face)) {
+        if (!this.generation.blocks[face][blockId]) {
+          this.generation.blocks[face][blockId] = [];
+        }
+        this.generation.blocks[face][blockId].push(matrix);
+      }
+    }
+
+    // Store instance ID (use array length as ID)
+    block.instanceId = this.generation.blocks.top[blockId]?.length ?? 0;
   }
 
-  // Regenerate matrices after block changes
-  private regenerateMatrices() {
-    if (!this.generation?.data) return;
+  // Delete a single block instance
+  private deleteBlockInstance(x: number, y: number, z: number) {
+    if (!this.generation?.data || !this.generation?.blocks) return;
 
-    const blocks = this.generateMatrices(this.generation.data);
-    this.generation.blocks = blocks;
+    const block = this.generation.data[x][y][z];
+    if (block.instanceId === null) return; // No instance to delete
+
+    const blockId = block.id;
+    const targetX = x + 0.5;
+    const targetY = y + 0.5;
+    const targetZ = z + 0.5;
+
+    // Remove from all faces
+    const faces: Array<keyof WorldMatrices> = ["top", "bottom", "left", "right", "front", "back"];
+    for (const face of faces) {
+      const matrices = this.generation.blocks[face][blockId];
+      if (matrices) {
+        // Find and remove the matrix for this block - reuse temp vector
+        const index = matrices.findIndex((m) => {
+          this._tempVector.setFromMatrixPosition(m);
+          return (
+            Math.abs(this._tempVector.x - targetX) < 0.01 &&
+            Math.abs(this._tempVector.y - targetY) < 0.01 &&
+            Math.abs(this._tempVector.z - targetZ) < 0.01
+          );
+        });
+        if (index !== -1) {
+          matrices.splice(index, 1);
+        }
+      }
+    }
   }
 
+  // Check if a face should be rendered
+  private shouldRenderFace(x: number, y: number, z: number, face: keyof WorldMatrices): boolean {
+    if (!this.generation?.data) return false;
+
+    const width = this.width;
+    const height = this.height;
+    const depth = this.depth;
+
+    switch (face) {
+      case "top":
+        return y === height - 1 || this.generation.data[x][y + 1][z].id === BlockType.Empty;
+      case "bottom":
+        return y === 0 || this.generation.data[x][y - 1][z].id === BlockType.Empty;
+      case "right":
+        return x === width - 1 || this.generation.data[x + 1][y][z].id === BlockType.Empty;
+      case "left":
+        return x === 0 || this.generation.data[x - 1][y][z].id === BlockType.Empty;
+      case "front":
+        return z === depth - 1 || this.generation.data[x][y][z + 1].id === BlockType.Empty;
+      case "back":
+        return z === 0 || this.generation.data[x][y][z - 1].id === BlockType.Empty;
+    }
+  }
+
+  // Reveal a specific face of a block
+  private revealBlockFace(x: number, y: number, z: number, face: keyof WorldMatrices) {
+    if (!this.isInBounds(x, y, z)) return;
+    if (!this.generation?.data || !this.generation?.blocks) return;
+
+    const block = this.generation.data[x][y][z];
+    if (block.id === BlockType.Empty) return;
+
+    // Check if this face should now be visible
+    if (!this.shouldRenderFace(x, y, z, face)) return;
+
+    const targetX = x + 0.5;
+    const targetY = y + 0.5;
+    const targetZ = z + 0.5;
+
+    // Check if this face already exists - reuse temp vector
+    const matrices = this.generation.blocks[face][block.id];
+    if (matrices) {
+      const exists = matrices.some((m) => {
+        this._tempVector.setFromMatrixPosition(m);
+        return (
+          Math.abs(this._tempVector.x - targetX) < 0.01 &&
+          Math.abs(this._tempVector.y - targetY) < 0.01 &&
+          Math.abs(this._tempVector.z - targetZ) < 0.01
+        );
+      });
+      if (exists) return; // Face already visible
+    }
+
+    // Add the face - create new matrix (unavoidable)
+    const matrix = new Matrix4();
+    matrix.setPosition(targetX, targetY, targetZ);
+
+    if (!this.generation.blocks[face][block.id]) {
+      this.generation.blocks[face][block.id] = [];
+    }
+    this.generation.blocks[face][block.id].push(matrix);
+
+    // Update instance ID if it was null
+    if (block.instanceId === null) {
+      block.instanceId = 1;
+    }
+  }
+
+  // Hide a specific face of a block
+  private hideBlockFace(x: number, y: number, z: number, face: keyof WorldMatrices) {
+    if (!this.isInBounds(x, y, z)) return;
+    if (!this.generation?.data || !this.generation?.blocks) return;
+
+    const block = this.generation.data[x][y][z];
+    if (block.id === BlockType.Empty) return;
+
+    // Check if this face should be hidden
+    if (this.shouldRenderFace(x, y, z, face)) return; // Face should remain visible
+
+    const targetX = x + 0.5;
+    const targetY = y + 0.5;
+    const targetZ = z + 0.5;
+
+    // Remove the face - reuse temp vector
+    const matrices = this.generation.blocks[face][block.id];
+    if (matrices) {
+      const index = matrices.findIndex((m) => {
+        this._tempVector.setFromMatrixPosition(m);
+        return (
+          Math.abs(this._tempVector.x - targetX) < 0.01 &&
+          Math.abs(this._tempVector.y - targetY) < 0.01 &&
+          Math.abs(this._tempVector.z - targetZ) < 0.01
+        );
+      });
+      if (index !== -1) {
+        matrices.splice(index, 1);
+
+        // If no more faces are visible, mark instance as null
+        const allFaces: Array<keyof WorldMatrices> = [
+          "top",
+          "bottom",
+          "left",
+          "right",
+          "front",
+          "back"
+        ];
+        const hasAnyFace = allFaces.some((f) => {
+          const faceMatrices = this.generation?.blocks[f][block.id];
+          if (!faceMatrices) return false;
+          return faceMatrices.some((m) => {
+            this._tempVector.setFromMatrixPosition(m);
+            return (
+              Math.abs(this._tempVector.x - targetX) < 0.01 &&
+              Math.abs(this._tempVector.y - targetY) < 0.01 &&
+              Math.abs(this._tempVector.z - targetZ) < 0.01
+            );
+          });
+        });
+        if (!hasAnyFace) {
+          block.instanceId = null;
+        }
+      }
+    }
+  }
   getUIParams() {
     const resourcesCopy = Object.values(this.resources).reduce(
       (acc, resource: any) => {

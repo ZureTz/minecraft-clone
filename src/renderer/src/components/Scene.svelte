@@ -294,6 +294,6 @@
   {@const { x, y, z } = playerController.highlightedBlock}
   <T.Mesh position={[x + 0.5, y + 0.5, z + 0.5]}>
     <T.BoxGeometry args={[1.01, 1.01, 1.01]} />
-    <T.MeshBasicMaterial color="#ffffff" transparent opacity={0.3} wireframe />
+    <T.MeshBasicMaterial color="#ffff00" transparent opacity={0.4} />
   </T.Mesh>
 {/if}
