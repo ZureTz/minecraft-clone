@@ -3,6 +3,8 @@
   import { ACESFilmicToneMapping } from "three";
 
   import Scene from "./components/Scene.svelte";
+  import Crosshair from "./components/Crosshair.svelte";
+  import Hotbar from "./components/Hotbar.svelte";
   import { World } from "./utils/world.svelte";
   import { defaultPosition } from "./utils/player.svelte";
 
@@ -28,6 +30,12 @@
   <Canvas shadows toneMapping={ACESFilmicToneMapping}>
     <Scene {world} bind:position />
   </Canvas>
+
+  <!-- Crosshair -->
+  <Crosshair />
+
+  <!-- Hotbar -->
+  <Hotbar />
 
   <!-- Position Display -->
   <div

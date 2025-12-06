@@ -288,6 +288,40 @@ export class World {
     return this.data[x][y][z];
   }
 
+  // Add a block at the specified position
+  addBlock(x: number, y: number, z: number, blockId: number) {
+    if (!this.isInBounds(x, y, z)) return false;
+    if (!this.generation?.data) return false;
+
+    // Set the block
+    this.generation.data[x][y][z] = { id: blockId };
+
+    // Regenerate matrices for the affected area
+    this.regenerateMatrices();
+    return true;
+  }
+
+  // Remove a block at the specified position
+  removeBlock(x: number, y: number, z: number) {
+    if (!this.isInBounds(x, y, z)) return false;
+    if (!this.generation?.data) return false;
+
+    // Set to empty
+    this.generation.data[x][y][z] = { id: BlockType.Empty };
+
+    // Regenerate matrices
+    this.regenerateMatrices();
+    return true;
+  }
+
+  // Regenerate matrices after block changes
+  private regenerateMatrices() {
+    if (!this.generation?.data) return;
+
+    const blocks = this.generateMatrices(this.generation.data);
+    this.generation.blocks = blocks;
+  }
+
   getUIParams() {
     const resourcesCopy = Object.values(this.resources).reduce(
       (acc, resource: any) => {

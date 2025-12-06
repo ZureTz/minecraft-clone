@@ -6,6 +6,7 @@
   import { getBlockColor, getNormalMap, getTexture, loadBlockTextures } from "../utils/textures";
   import { createUI } from "../utils/ui";
   import { World } from "../utils/world.svelte";
+  import { playerController } from "../utils/player.svelte";
   import Player from "./Player.svelte";
 
   const { renderer } = useThrelte();
@@ -287,3 +288,12 @@
     {/each}
   {/key}
 {/await}
+
+<!-- Highlighted Block Outline -->
+{#if playerController.highlightedBlock}
+  {@const { x, y, z } = playerController.highlightedBlock}
+  <T.Mesh position={[x + 0.5, y + 0.5, z + 0.5]}>
+    <T.BoxGeometry args={[1.01, 1.01, 1.01]} />
+    <T.MeshBasicMaterial color="#ffffff" transparent opacity={0.3} wireframe />
+  </T.Mesh>
+{/if}
