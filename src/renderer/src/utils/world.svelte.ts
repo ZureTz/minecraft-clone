@@ -82,7 +82,7 @@ export class World {
   );
 
   // Reusable objects to avoid GC pressure
-  private _tempVector = new Vector3();
+  private _temporaryVector = new Vector3();
 
   constructor(params: WorldParams = {}) {
     if (params.width) this.width = params.width;
@@ -441,7 +441,9 @@ export class World {
     this.hideBlockFace(x, y, z + 1, "back"); // Front neighbor's back face
 
     return true;
-  } // Remove a block at the specified position
+  }
+
+  // Remove a block at the specified position
   removeBlock(x: number, y: number, z: number) {
     if (!this.isInBounds(x, y, z)) return false;
     if (!this.generation?.data) return false;
@@ -465,7 +467,9 @@ export class World {
     this.revealBlockFace(x, y, z + 1, "back"); // Front neighbor's back face
 
     return true;
-  } // Add a single block instance
+  }
+
+  // Add a single block instance
   private addBlockInstance(x: number, y: number, z: number, blockId: number) {
     if (!this.generation?.data || !this.generation?.blocks) return;
 
@@ -509,11 +513,11 @@ export class World {
       if (matrices) {
         // Find and remove the matrix for this block - reuse temp vector
         const index = matrices.findIndex((m) => {
-          this._tempVector.setFromMatrixPosition(m);
+          this._temporaryVector.setFromMatrixPosition(m);
           return (
-            Math.abs(this._tempVector.x - targetX) < 0.01 &&
-            Math.abs(this._tempVector.y - targetY) < 0.01 &&
-            Math.abs(this._tempVector.z - targetZ) < 0.01
+            Math.abs(this._temporaryVector.x - targetX) < 0.01 &&
+            Math.abs(this._temporaryVector.y - targetY) < 0.01 &&
+            Math.abs(this._temporaryVector.z - targetZ) < 0.01
           );
         });
         if (index !== -1) {
@@ -579,11 +583,11 @@ export class World {
     const matrices = this.generation.blocks[face][block.id];
     if (matrices) {
       const exists = matrices.some((m) => {
-        this._tempVector.setFromMatrixPosition(m);
+        this._temporaryVector.setFromMatrixPosition(m);
         return (
-          Math.abs(this._tempVector.x - targetX) < 0.01 &&
-          Math.abs(this._tempVector.y - targetY) < 0.01 &&
-          Math.abs(this._tempVector.z - targetZ) < 0.01
+          Math.abs(this._temporaryVector.x - targetX) < 0.01 &&
+          Math.abs(this._temporaryVector.y - targetY) < 0.01 &&
+          Math.abs(this._temporaryVector.z - targetZ) < 0.01
         );
       });
       if (exists) return; // Face already visible
@@ -623,11 +627,11 @@ export class World {
     const matrices = this.generation.blocks[face][block.id];
     if (matrices) {
       const index = matrices.findIndex((m) => {
-        this._tempVector.setFromMatrixPosition(m);
+        this._temporaryVector.setFromMatrixPosition(m);
         return (
-          Math.abs(this._tempVector.x - targetX) < 0.01 &&
-          Math.abs(this._tempVector.y - targetY) < 0.01 &&
-          Math.abs(this._tempVector.z - targetZ) < 0.01
+          Math.abs(this._temporaryVector.x - targetX) < 0.01 &&
+          Math.abs(this._temporaryVector.y - targetY) < 0.01 &&
+          Math.abs(this._temporaryVector.z - targetZ) < 0.01
         );
       });
       if (index !== -1) {
@@ -646,11 +650,11 @@ export class World {
           const faceMatrices = this.generation?.blocks[f][block.id];
           if (!faceMatrices) return false;
           return faceMatrices.some((m) => {
-            this._tempVector.setFromMatrixPosition(m);
+            this._temporaryVector.setFromMatrixPosition(m);
             return (
-              Math.abs(this._tempVector.x - targetX) < 0.01 &&
-              Math.abs(this._tempVector.y - targetY) < 0.01 &&
-              Math.abs(this._tempVector.z - targetZ) < 0.01
+              Math.abs(this._temporaryVector.x - targetX) < 0.01 &&
+              Math.abs(this._temporaryVector.y - targetY) < 0.01 &&
+              Math.abs(this._temporaryVector.z - targetZ) < 0.01
             );
           });
         });
