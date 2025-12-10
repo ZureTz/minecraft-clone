@@ -17,6 +17,7 @@
     "AABB",
     "Hotbar",
     "metalness",
+    "Noclip",
     "oncreate",
     "raycaster",
     "ssao",

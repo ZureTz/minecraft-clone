@@ -19,6 +19,8 @@ export class PlayerController {
   damping = $state(10);
   // Sprint state
   isSprinting = $state(false);
+  // Noclip state
+  isNoclip = $state(false);
   // Camera FOV (will change when sprinting)
   defaultFov = 75;
   sprintFovAddFactor = 15;
@@ -113,6 +115,9 @@ export class PlayerController {
           this.isSprinting = !this.isSprinting;
         }
         break;
+      case "KeyV":
+        this.isNoclip = !this.isNoclip;
+        break;
       case "KeyR":
         this.resetPosition();
         break;
@@ -179,6 +184,50 @@ export class PlayerController {
     this.velocity.x -= this.velocity.x * this.damping * delta;
     this.velocity.z -= this.velocity.z * this.damping * delta;
 
+    // Smooth FOV transition
+    const targetFov = this.isSprinting
+      ? this.defaultFov + this.sprintFovAddFactor
+      : this.defaultFov;
+    this.fov += (targetFov - this.fov) * 10 * delta;
+
+    if (this.isNoclip) {
+      // Ignore gravity and collisions
+      this.velocity.y -= this.velocity.y * this.damping * delta;
+
+      // Calculate noclip speed
+      const noclipSpeed = this.isSprinting
+        ? this.defaultAcceleration * 4
+        : this.defaultAcceleration * 2;
+
+      if (this.moveForward || this.moveBackward) {
+        this.velocity.z += this.direction.z * noclipSpeed * delta;
+      }
+      if (this.moveLeft || this.moveRight) {
+        this.velocity.x += this.direction.x * noclipSpeed * delta;
+      }
+      if (this.moveUp) {
+        this.velocity.y += noclipSpeed * delta;
+      }
+      if (this.moveDown) {
+        this.velocity.y -= noclipSpeed * delta;
+      }
+
+      const camera = this.controls.object;
+      const forward = new Vector3();
+      const right = new Vector3();
+
+      camera.getWorldDirection(forward);
+      right.crossVectors(forward, new Vector3(0, 1, 0)).normalize();
+
+      const worldVelocity = new Vector3();
+      worldVelocity.addScaledVector(right, this.velocity.x);
+      worldVelocity.addScaledVector(forward, this.velocity.z);
+      worldVelocity.addScaledVector(new Vector3(0, 1, 0), this.velocity.y);
+
+      camera.position.addScaledVector(worldVelocity, delta);
+      return;
+    }
+
     // Apply Gravity
     this.velocity.y -= this.physics.gravity * delta;
 
@@ -186,12 +235,6 @@ export class PlayerController {
     if (this.moveUp && this.physics.onGround) {
       this.velocity.y = 10;
     }
-
-    // Smooth FOV transition
-    const targetFov = this.isSprinting
-      ? this.defaultFov + this.sprintFovAddFactor
-      : this.defaultFov;
-    this.fov += (targetFov - this.fov) * 10 * delta;
 
     // Calculate acceleration
     // Only apply sprint acceleration if moving forward
