@@ -407,14 +407,23 @@ export class PlayerController {
       // Check if placement position is valid (not inside player)
       const camera = this.controls?.object;
       if (camera) {
-        const playerX = Math.floor(camera.position.x);
-        const playerY = Math.floor(camera.position.y);
-        const playerZ = Math.floor(camera.position.z);
+        const playerX = camera.position.x;
+        const playerY = camera.position.y;
+        const playerZ = camera.position.z;
 
         // Don't place block if it overlaps with player position
-        const overlapX = Math.abs(placeX - playerX) < 1;
-        const overlapY = Math.abs(placeY - playerY) < 2; // Player is 2 blocks tall
-        const overlapZ = Math.abs(placeZ - playerZ) < 1;
+        // Adding a small offset to playerY to account for overlap after placement
+        const safePlaceDistance = {
+          x: placeX + 0.5,
+          y: placeY + 0.5,
+          z: placeZ + 0.5
+        };
+
+        const overlapX = Math.abs(safePlaceDistance.x - playerX) < 1;
+        const overlapY =
+          (safePlaceDistance.y - playerY > -1.75 && safePlaceDistance.y - playerY < 0) ||
+          (safePlaceDistance.y - playerY > 0 && safePlaceDistance.y - playerY < 0.25); // Player is 2 blocks tall
+        const overlapZ = Math.abs(safePlaceDistance.z - playerZ) < 1;
 
         if (overlapX && overlapY && overlapZ) {
           return; // Don't place block

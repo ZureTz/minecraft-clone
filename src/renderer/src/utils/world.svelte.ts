@@ -83,6 +83,7 @@ export class World {
 
   // Reusable objects to avoid GC pressure
   private _temporaryVector = new Vector3();
+  private _temporaryMatrix = new Matrix4();
 
   constructor(params: WorldParams = {}) {
     if (params.width) this.width = params.width;
@@ -337,8 +338,8 @@ export class World {
           // Skip empty blocks
           if (block.id === BlockType.Empty) continue;
 
-          const matrix = new Matrix4();
-          matrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
+          this._temporaryMatrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
+          const matrix = this._temporaryMatrix.clone();
 
           let instanceCount = 0;
           const addMatrix = (face: keyof WorldMatrices) => {
@@ -476,8 +477,8 @@ export class World {
     const block = this.generation.data[x][y][z];
     if (block.instanceId !== null) return; // Already has an instance
 
-    const matrix = new Matrix4();
-    matrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
+    this._temporaryMatrix.setPosition(x + 0.5, y + 0.5, z + 0.5);
+    const matrix = this._temporaryMatrix.clone();
 
     // Add to each visible face
     const faces: Array<keyof WorldMatrices> = ["top", "bottom", "left", "right", "front", "back"];
@@ -593,9 +594,9 @@ export class World {
       if (exists) return; // Face already visible
     }
 
-    // Add the face - create new matrix (unavoidable)
-    const matrix = new Matrix4();
-    matrix.setPosition(targetX, targetY, targetZ);
+    // Add the face - reuse temporary matrix
+    this._temporaryMatrix.setPosition(targetX, targetY, targetZ);
+    const matrix = this._temporaryMatrix.clone();
 
     if (!this.generation.blocks[face][block.id]) {
       this.generation.blocks[face][block.id] = [];
